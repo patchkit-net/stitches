@@ -184,9 +184,6 @@ const createRenderer = (config, internals, sheet, { shouldForwardStitchesProp })
 				})
 			}
 
-			const singularVariantsToAdd = getTargetVariantsToAdd(singularVariants, variantProps, config.media)
-			const compoundVariantsToAdd = getTargetVariantsToAdd(compoundVariants, variantProps, config.media, true)
-
 			// ----------------------------------------------------------------------------------------
 			// PatchKit Fork - preload classes to get variants priority based on declaration order
 			// ----------------------------------------------------------------------------------------
@@ -198,58 +195,31 @@ const createRenderer = (config, internals, sheet, { shouldForwardStitchesProp })
 				const vClass = `${key}-${val}`;
 				const variantClassName = `${composerBaseClass}-${toHash(vStyle)}-${vClass}`
 
-				classSet.add(variantClassName);
-
 				const groupCache = (isResponsive ? sheet.rules.resonevar : sheet.rules.onevar ).cache
+
 				if (!groupCache.has(variantClassName)) {
 					groupCache.add(variantClassName)
+
+					const targetInjectionGroup = isResponsive ? injectionTarget.resonevar : injectionTarget.onevar
+					if (!sheet.rules.allvar.cache.has(variantClassName)) {
+						toCssRules(vStyle, [`.${variantClassName}`], [], config, (cssText) => {
+							targetInjectionGroup.apply(cssText)
+						})
+					}
 				}
 			})
+
+			const singularVariantsToAdd = getTargetVariantsToAdd(singularVariants, variantProps, config.media)
+			const compoundVariantsToAdd = getTargetVariantsToAdd(compoundVariants, variantProps, config.media, true)
 
 			for (const variantToAdd of singularVariantsToAdd) {
 				if (variantToAdd === undefined) continue
 
-				for (const [vClass, vStyle, isResponsive] of variantToAdd) {
+				for (const [vClass, vStyle] of variantToAdd) {
 					const variantClassName = `${composerBaseClass}-${toHash(vStyle)}-${vClass}`
-
-					const targetInjectionGroup = isResponsive ? injectionTarget.resonevar : injectionTarget.onevar
-
-					toCssRules(vStyle, [`.${variantClassName}`], [], config, (cssText) => {
-						targetInjectionGroup.apply(cssText)
-					})
+					classSet.add(variantClassName)
 				}
 			}
-
-			// ----------------------------------------------------------------------------------------
-			// PatchKit Fork - original code commented
-			// ----------------------------------------------------------------------------------------
-
-			// for (const variantToAdd of singularVariantsToAdd) {
-			// 	if (variantToAdd === undefined) continue
-
-			// 	for (const [vClass, vStyle, isResponsive] of variantToAdd) {
-			// 		const variantClassName = `${composerBaseClass}-${toHash(vStyle)}-${vClass}`
-
-			// 		classSet.add(variantClassName)
-
-			// 		const groupCache = (isResponsive ? sheet.rules.resonevar : sheet.rules.onevar ).cache
-			// 		/*
-			// 		 * make sure that normal variants are injected before responsive ones
-			// 		 * @see {@link https://github.com/stitchesjs/stitches/issues/737|github}
-			// 		 */
-			// 		const targetInjectionGroup = isResponsive ? injectionTarget.resonevar : injectionTarget.onevar
-
-			// 		if (!groupCache.has(variantClassName)) {
-			// 			groupCache.add(variantClassName)
-			// 			toCssRules(vStyle, [`.${variantClassName}`], [], config, (cssText) => {
-			// 				targetInjectionGroup.apply(cssText)
-			// 			})
-			// 		}
-			// 		toCssRules(vStyle, [`.${variantClassName}`], [], config, (cssText) => {
-			// 			targetInjectionGroup.apply(cssText)
-			// 		})
-			// 	}
-			// }
 
 			for (const variantToAdd of compoundVariantsToAdd) {
 				if (variantToAdd === undefined) continue
