@@ -1,8 +1,8 @@
-import { internal } from '../utility/internal.js'
 import { createMemo } from '../utility/createMemo.js'
 import { define } from '../utility/define.js'
 import { hasNames } from '../utility/hasNames.js'
 import { hasOwn } from '../utility/hasOwn.js'
+import { internal } from '../utility/internal.js'
 
 import { toCssRules } from '../convert/toCssRules.js'
 import { toHash } from '../convert/toHash.js'
@@ -187,29 +187,69 @@ const createRenderer = (config, internals, sheet, { shouldForwardStitchesProp })
 			const singularVariantsToAdd = getTargetVariantsToAdd(singularVariants, variantProps, config.media)
 			const compoundVariantsToAdd = getTargetVariantsToAdd(compoundVariants, variantProps, config.media, true)
 
+			// ----------------------------------------------------------------------------------------
+			// PatchKit Fork - preload classes to get variants priority based on declaration order
+			// ----------------------------------------------------------------------------------------
+			singularVariants.forEach((singularVariant) => {
+				const isResponsive = singularVariant[2]
+				const key = Object.keys(singularVariant[0])[0]
+				const val = singularVariant[0][key]
+				const vStyle = singularVariant[1]
+				const vClass = `${key}-${val}`;
+				const variantClassName = `${composerBaseClass}-${toHash(vStyle)}-${vClass}`
+
+				classSet.add(variantClassName);
+
+				const groupCache = (isResponsive ? sheet.rules.resonevar : sheet.rules.onevar ).cache
+				if (!groupCache.has(variantClassName)) {
+					groupCache.add(variantClassName)
+				}
+			})
+
 			for (const variantToAdd of singularVariantsToAdd) {
 				if (variantToAdd === undefined) continue
 
 				for (const [vClass, vStyle, isResponsive] of variantToAdd) {
 					const variantClassName = `${composerBaseClass}-${toHash(vStyle)}-${vClass}`
 
-					classSet.add(variantClassName)
-
-					const groupCache = (isResponsive ? sheet.rules.resonevar : sheet.rules.onevar ).cache
-					/* 
-					 * make sure that normal variants are injected before responsive ones
-					 * @see {@link https://github.com/stitchesjs/stitches/issues/737|github}
-					 */
 					const targetInjectionGroup = isResponsive ? injectionTarget.resonevar : injectionTarget.onevar
 
-					if (!groupCache.has(variantClassName)) {
-						groupCache.add(variantClassName)
-						toCssRules(vStyle, [`.${variantClassName}`], [], config, (cssText) => {
-							targetInjectionGroup.apply(cssText)
-						})
-					}
+					toCssRules(vStyle, [`.${variantClassName}`], [], config, (cssText) => {
+						targetInjectionGroup.apply(cssText)
+					})
 				}
 			}
+
+			// ----------------------------------------------------------------------------------------
+			// PatchKit Fork - original code commented
+			// ----------------------------------------------------------------------------------------
+
+			// for (const variantToAdd of singularVariantsToAdd) {
+			// 	if (variantToAdd === undefined) continue
+
+			// 	for (const [vClass, vStyle, isResponsive] of variantToAdd) {
+			// 		const variantClassName = `${composerBaseClass}-${toHash(vStyle)}-${vClass}`
+
+			// 		classSet.add(variantClassName)
+
+			// 		const groupCache = (isResponsive ? sheet.rules.resonevar : sheet.rules.onevar ).cache
+			// 		/*
+			// 		 * make sure that normal variants are injected before responsive ones
+			// 		 * @see {@link https://github.com/stitchesjs/stitches/issues/737|github}
+			// 		 */
+			// 		const targetInjectionGroup = isResponsive ? injectionTarget.resonevar : injectionTarget.onevar
+
+			// 		if (!groupCache.has(variantClassName)) {
+			// 			groupCache.add(variantClassName)
+			// 			toCssRules(vStyle, [`.${variantClassName}`], [], config, (cssText) => {
+			// 				targetInjectionGroup.apply(cssText)
+			// 			})
+			// 		}
+			// 		toCssRules(vStyle, [`.${variantClassName}`], [], config, (cssText) => {
+			// 			targetInjectionGroup.apply(cssText)
+			// 		})
+			// 	}
+			// }
 
 			for (const variantToAdd of compoundVariantsToAdd) {
 				if (variantToAdd === undefined) continue
@@ -233,7 +273,7 @@ const createRenderer = (config, internals, sheet, { shouldForwardStitchesProp })
 		// apply css property styles
 		const css = forwardProps.css
 		if (typeof css === 'object' && css) {
-			if (!shouldForwardStitchesProp?.('css')) delete forwardProps.css 
+			if (!shouldForwardStitchesProp?.('css')) delete forwardProps.css
 			/** @type {string} Inline Class Unique Identifier. @see `{COMPOSER_UUID}-i{VARIANT_UUID}-css` */
 			const iClass = `${baseClassName}-i${toHash(css)}-css`
 
@@ -323,7 +363,7 @@ const getTargetVariantsToAdd = (
 	media,
 	isCompoundVariant,
 ) => {
-	
+
 	const targetVariantsToAdd = []
 
 	targetVariants: for (let [vMatch, vStyle, vEmpty] of targetVariants) {
@@ -354,7 +394,7 @@ const getTargetVariantsToAdd = (
 				for (const query in pPair) {
 					if (vPair === String(pPair[query])) {
 						if (query !== '@initial') {
-							// check if the cleanQuery is in the media config and then we push the resulting media query to the matchedQueries array, 
+							// check if the cleanQuery is in the media config and then we push the resulting media query to the matchedQueries array,
 							// if not, we remove the @media from the beginning and push it to the matched queries which then will be resolved a few lines down
 							// when we finish working on this variant and want wrap the vStyles with the matchedQueries
 							const cleanQuery = query.slice(1);
